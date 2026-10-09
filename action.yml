@@ -1,5 +1,5 @@
-name: Artifact Pages publish
-description: Publish a registered site to Artifact Pages, a searchable static reader for Git-managed documents.
+name: Artifact Pages site sync
+description: Reconcile a registered site's static projection with its Git-managed publishable files.
 author: artifact-pages
 branding:
   icon: book-open
@@ -12,8 +12,16 @@ inputs:
     description: Publishable source directory inside the checked-out Git repository.
     required: false
     default: ""
+  ref:
+    description: Source metadata ref to record in the site index; does not select the checkout or source content.
+    required: false
+    default: ""
   config:
     description: Optional deployment config path or github:// config locator.
+    required: false
+    default: ""
+  cli-version:
+    description: Override the config CLI pin with an exact supported release; compatibility checks still run.
     required: false
     default: ""
   github-token:
@@ -45,7 +53,7 @@ outputs:
     description: CLI operation name.
     value: ${{ steps.cli.outputs.operation }}
   outcome:
-    description: CLI outcome string, such as planned, published, no-op, or failed.
+    description: CLI outcome string, such as planned, synced, no-op, or failed.
     value: ${{ steps.cli.outputs.outcome }}
   site:
     description: Explicit site ID selected for this operation.
@@ -81,21 +89,27 @@ runs:
       with:
         fetch-depth: ${{ inputs.fetch-depth }}
         persist-credentials: false
-    - name: Install the CLI that matches this Action version
+    - name: Install the bootstrap CLI
       id: install
       shell: bash
       env:
-        ARTIFACT_PAGES_TOKEN: ${{ github.token }}
+        ARTIFACT_PAGES_ACTION_KIND: publish
+        ARTIFACT_PAGES_INPUT_CLI_VERSION: ${{ inputs.cli-version }}
+        ARTIFACT_PAGES_INPUT_SUMMARY: ${{ inputs.summary }}
+        ARTIFACT_PAGES_DOWNLOAD_TOKEN: ${{ github.token }}
       run: node "$GITHUB_ACTION_PATH/scripts/prebuilt-cli.mjs" --action-root "$GITHUB_ACTION_PATH"
-    - name: Publish the site
+    - name: Sync the site
       id: cli
       shell: bash
       working-directory: ${{ github.workspace }}
       env:
         ARTIFACT_PAGES_CLI: ${{ runner.temp }}/artifact-pages
         ARTIFACT_PAGES_ACTION_KIND: publish
+        ARTIFACT_PAGES_INPUT_CLI_VERSION: ${{ inputs.cli-version }}
+        ARTIFACT_PAGES_DOWNLOAD_TOKEN: ${{ github.token }}
         ARTIFACT_PAGES_INPUT_SITE: ${{ inputs.site }}
         ARTIFACT_PAGES_INPUT_SOURCE: ${{ inputs.source }}
+        ARTIFACT_PAGES_INPUT_REF: ${{ inputs.ref }}
         ARTIFACT_PAGES_INPUT_CONFIG: ${{ inputs.config }}
         ARTIFACT_PAGES_INPUT_DRY_RUN: ${{ inputs.dry-run }}
         ARTIFACT_PAGES_INPUT_SUMMARY: ${{ inputs.summary }}
